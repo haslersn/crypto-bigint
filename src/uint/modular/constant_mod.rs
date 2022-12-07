@@ -1,8 +1,15 @@
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 
-use subtle::{Choice, ConditionallySelectable};
+use rand_core::{CryptoRng, RngCore};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
-use crate::{Limb, UInt};
+#[cfg(feature = "serde")]
+use {
+    crate::Encoding,
+    serdect::serde::{Deserialize, Deserializer, Serialize, Serializer},
+};
+
+use crate::{Limb, NonZero, Random, RandomMod, UInt, Zero};
 
 use super::{reduction::montgomery_reduction, GenericResidue};
 
@@ -14,6 +21,8 @@ mod const_inv;
 mod const_mul;
 /// Exponentiation of residues with a constant modulus
 mod const_pow;
+/// Subtractions between residues with a constant modulus
+mod const_sub;
 
 #[macro_use]
 /// Macros to remove the boilerplate code when dealing with constant moduli.
@@ -22,7 +31,7 @@ pub mod macros;
 /// The parameters to efficiently go to and from the Montgomery form for a given odd modulus. An easy way to generate these parameters is using the `impl_modulus!` macro. These parameters are constant, so they cannot be set at runtime.
 ///
 /// Unfortunately, `LIMBS` must be generic for now until const generics are stabilized.
-pub trait ResidueParams<const LIMBS: usize>: Copy {
+pub trait ResidueParams<const LIMBS: usize>: Debug + Default + Copy + Eq {
     /// Number of limbs required to encode a residue
     const LIMBS: usize;
 
@@ -39,7 +48,7 @@ pub trait ResidueParams<const LIMBS: usize>: Copy {
     const MOD_NEG_INV: Limb;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 /// A residue mod `MOD`, represented using `LIMBS` limbs. The modulus of this residue is constant, so it cannot be set at runtime.
 pub struct Residue<MOD, const LIMBS: usize>
 where
@@ -80,7 +89,38 @@ impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> Residue<MOD, LIMBS> {
     }
 }
 
+impl<MOD, const LIMBS: usize> ConstantTimeEq for Residue<MOD, LIMBS>
+where
+    MOD: ResidueParams<LIMBS>,
+{
+    #[inline]
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.montgomery_form.ct_eq(&other.montgomery_form)
+    }
+}
+
+impl<MOD, const LIMBS: usize> Zero for Residue<MOD, LIMBS>
+where
+    MOD: ResidueParams<LIMBS>,
+{
+    const ZERO: Self = Residue {
+        montgomery_form: Zero::ZERO,
+        phantom: PhantomData,
+    };
+}
+
+impl<MOD, const LIMBS: usize> Random for Residue<MOD, LIMBS>
+where
+    MOD: ResidueParams<LIMBS>,
+{
+    #[inline]
+    fn random(rng: impl CryptoRng + RngCore) -> Self {
+        Self::new(UInt::random_mod(rng, &NonZero::from_uint(MOD::MODULUS)))
+    }
+}
+
 impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> GenericResidue<LIMBS> for Residue<MOD, LIMBS> {
+    #[inline]
     fn retrieve(&self) -> UInt<LIMBS> {
         self.retrieve()
     }
@@ -98,5 +138,36 @@ impl<MOD: ResidueParams<LIMBS> + Copy, const LIMBS: usize> ConditionallySelectab
             ),
             phantom: PhantomData,
         }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, MOD, const LIMBS: usize> Deserialize<'de> for Residue<MOD, LIMBS>
+where
+    MOD: ResidueParams<LIMBS>,
+    UInt<LIMBS>: Encoding,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        UInt::<LIMBS>::deserialize(deserializer).map(|montgomery_form| Self {
+            montgomery_form,
+            phantom: PhantomData,
+        })
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, MOD, const LIMBS: usize> Serialize for Residue<MOD, LIMBS>
+where
+    MOD: ResidueParams<LIMBS>,
+    UInt<LIMBS>: Encoding,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.montgomery_form.serialize(serializer)
     }
 }

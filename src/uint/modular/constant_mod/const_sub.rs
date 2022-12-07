@@ -1,49 +1,27 @@
-use core::ops::{Add, AddAssign};
+use core::ops::{Sub, SubAssign};
 
-use crate::{
-    modular::{add::add_montgomery_form, AddResidue},
-    UInt,
-};
+use crate::modular::sub::sub_montgomery_form;
 
 use super::{Residue, ResidueParams};
 
-impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> AddResidue for Residue<MOD, LIMBS> {
-    fn add(&self, rhs: &Self) -> Self {
-        self.add(rhs)
+impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> SubAssign<Self> for Residue<MOD, LIMBS> {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = self.sub(rhs);
     }
 }
 
-impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> Residue<MOD, LIMBS> {
-    /// Adds two residues together.
-    pub const fn add(&self, rhs: &Self) -> Self {
+impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> Sub for Residue<MOD, LIMBS> {
+    type Output = Residue<MOD, LIMBS>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
         Residue {
-            montgomery_form: add_montgomery_form(
+            montgomery_form: sub_montgomery_form(
                 &self.montgomery_form,
                 &rhs.montgomery_form,
                 &MOD::MODULUS,
             ),
             phantom: core::marker::PhantomData,
         }
-    }
-}
-
-impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> AddAssign<UInt<LIMBS>> for Residue<MOD, LIMBS> {
-    fn add_assign(&mut self, rhs: UInt<LIMBS>) {
-        *self += Residue::new(rhs);
-    }
-}
-
-impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> AddAssign<Self> for Residue<MOD, LIMBS> {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = self.add(rhs);
-    }
-}
-
-impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> Add for Residue<MOD, LIMBS> {
-    type Output = Residue<MOD, LIMBS>;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Residue::add(&self, &rhs)
     }
 }
 

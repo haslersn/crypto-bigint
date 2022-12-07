@@ -42,16 +42,16 @@ impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> Residue<MOD, LIMBS> {
     }
 }
 
-impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> MulAssign<&Self> for Residue<MOD, LIMBS> {
-    fn mul_assign(&mut self, rhs: &Self) {
+impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> MulAssign<Self> for Residue<MOD, LIMBS> {
+    fn mul_assign(&mut self, rhs: Self) {
         *self = self.mul(rhs)
     }
 }
 
-impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> Mul for &Residue<MOD, LIMBS> {
+impl<MOD: ResidueParams<LIMBS>, const LIMBS: usize> Mul for Residue<MOD, LIMBS> {
     type Output = Residue<MOD, LIMBS>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        self.mul(rhs)
+        Residue::mul(&self, &rhs)
     }
 }

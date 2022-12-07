@@ -2,7 +2,8 @@ use subtle::CtOption;
 
 use crate::{UInt, Word};
 
-mod reduction;
+/// Implements Montgomery reduction
+pub mod reduction;
 
 /// Implements `Residue`s, supporting modular arithmetic with a constant modulus.
 pub mod constant_mod;
@@ -13,6 +14,7 @@ mod add;
 mod inv;
 mod mul;
 mod pow;
+mod sub;
 
 /// Provides a consistent interface to add two residues of the same type together.
 pub trait AddResidue {
