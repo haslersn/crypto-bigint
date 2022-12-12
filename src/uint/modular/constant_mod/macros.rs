@@ -10,7 +10,6 @@ macro_rules! impl_modulus {
         where
             $crate::UInt<{ nlimbs!(<$uint_type>::BIT_SIZE) }>:
                 $crate::Concat<Output = $crate::UInt<DLIMBS>>,
-            $crate::UInt<DLIMBS>: $crate::Split<Output = $uint_type>,
         {
             const LIMBS: usize = { nlimbs!(<$uint_type>::BIT_SIZE) };
             const MODULUS: $crate::UInt<{ nlimbs!(<$uint_type>::BIT_SIZE) }> =
